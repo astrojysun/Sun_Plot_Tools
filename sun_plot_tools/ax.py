@@ -2,27 +2,24 @@ from __future__ import (
     division, print_function, absolute_import, unicode_literals)
 
 import numpy as np
-from scipy.ndimage import gaussian_filter
-import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.colors as mplcolors
+from scipy.ndimage import gaussian_filter
 from astropy.utils.console import ProgressBar
 
 
 def dense_scatter(
         x, y, ax=None, zorder=None, label=None,
         marker='o', markersize=1., edgewidth=0.,
-        c='w', color_smoothing_box=None, edgecolor='k',
-        show_progress=False, **kwargs):
+        c='w', edgecolor='k', color_smoothing_box=None,
+        xscale='log', yscale='log', show_progress=False, **kwargs):
     """
     Make scatter plots that handle overlapping data points better.
 
     This function attempts to make a dense scatter plot prettier by:
     + merging the 'marker edges' of overlapping data points;
-    + running a median-filter to homogenize the color of neighbouring
-      data points (criterion of 'neighbouring' given by user).
-
-    Note that the color smoothing functionality only works with
-    log-log plots (for now).
+    + running a median-filter to homogenize color for 'neighbouring'
+      data points (size of the smoothing box specified by the user).
 
     Parameters
     ----------
@@ -42,12 +39,16 @@ def dense_scatter(
         Default: 0.
     c : color or array-like, optional
         Default: 'w'
-    color_smoothing_box : None or 2-tuple, optional
-        If None, then no color smoothing will be performed.
-        If a 2-tuple, then this parameter specifies the half width
-        of the color smoothing box along X and Y direction (in dex).
     edgecolor : color, optional
         Default: 'k'
+    color_smoothing_box : None or 2-tuple, optional
+        If None, then no color smoothing will be performed.
+        If a 2-tuple, then this parameter specifies the full width
+        of the color smoothing box along X and Y direction.
+    xscale : {'log', 'linear'}, optional
+        X axis scale type (default: 'log')
+    yscale : {'log', 'linear'}, optional
+        Y axis scale type (default: 'log')
     show_progress : bool, optional
         Whether to show the progress bar for color smoothing.
     **kwargs
@@ -59,18 +60,39 @@ def dense_scatter(
         The Axes object in which contours are plotted.
     """
     if ax is None:
-        ax = plt.subplot(111)
+        ax = plt.gca()
+
+    ax.set_xscale(xscale)
+    ax.set_yscale(yscale)
 
     if (color_smoothing_box is not None) and (np.size(c) > 1):
-        rx, ry = 10**np.array(color_smoothing_box)
-        if show_progress:
-            newc = [np.nanmedian(c[(x > x[i]/rx) & (x < x[i]*rx) &
-                                   (y > y[i]/ry) & (y < y[i]*ry)])
-                    for i in ProgressBar(range(len(x)))]
+        if xscale == 'log':
+            x_ = np.log10(x)
+        elif xscale == 'linear':
+            x_ = x
         else:
-            newc = [np.nanmedian(c[(x > x0/rx) & (x < x0*rx) &
-                                   (y > y0/ry) & (y < y0*ry)])
-                    for (x0, y0) in zip(x, y)]
+            raise ValueError(
+                "xscale={} not supported yet".format(xscale))
+        if yscale == 'log':
+            y_ = np.log10(y)
+        elif yscale == 'linear':
+            y_ = y
+        else:
+            raise ValueError(
+                "yscale={} not supported yet".format(yscale))
+        newc = []
+        if show_progress:
+            bar = ProgressBar(range(len(x)))
+        else:
+            bar = None
+        for (x0_, y0_) in zip(x_, y_):
+            newc.append(np.nanmedian(
+                c[(x_ > x0_ - color_smoothing_box[0]/2) &
+                  (x_ < x0_ + color_smoothing_box[0]/2) &
+                  (y_ > y0_ - color_smoothing_box[1]/2) &
+                  (y_ < y0_ + color_smoothing_box[1]/2)]))
+            if show_progress:
+                bar.update()
     else:
         newc = c
 
@@ -87,14 +109,15 @@ def dense_scatter(
             x, y, marker=marker, c=newc,
             s=(markersize-edgewidth)**2,
             linewidths=0, zorder=zorder, **kwargs)
+
     if label is not None:
         if np.size(c) > 1:
-            print("Unable to add legend entry: "
-                  "`c` is not a scalar")
+            print("Unable to add legend entry: `c` is not a scalar")
         else:
             ax.plot(
                 [], [], marker=marker, mfc=c, mec=edgecolor,
                 ms=markersize, mew=edgewidth, ls='', label=label)
+
     return ax
 
 
@@ -140,7 +163,7 @@ def density_contour(
         Note that for an N-level contour plot, 'levels' must have
         length=N+1, and its leading element must be 0.
     alphas : array_like, optional
-        Transparancy of the contours. Default: (0.75, 0.50, 0.25)
+        Transparency of the contours. Default: (0.75, 0.50, 0.25)
     color : mpl color, optional
         Base color of the contours. Default: 'k'
     contour_type : {'contour', 'contourf'}, optional
@@ -158,14 +181,16 @@ def density_contour(
     """
     
     if xlim is None:
-        xlim = (10**(np.nanmin(np.log10(x))-overscan[0]),
-                10**(np.nanmax(np.log10(x))+overscan[0]))
+        xlim = (
+            10**(np.nanmin(np.log10(x))-overscan[0]),
+            10**(np.nanmax(np.log10(x))+overscan[0]))
     if ylim is None:
-        ylim = (10**(np.nanmin(np.log10(y))-overscan[1]),
-                10**(np.nanmax(np.log10(y))+overscan[1]))
+        ylim = (
+            10**(np.nanmin(np.log10(y))-overscan[1]),
+            10**(np.nanmax(np.log10(y))+overscan[1]))
 
     if ax is None:
-        ax = plt.subplot(111)
+        ax = plt.gca()
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
 
@@ -210,18 +235,18 @@ def density_contour(
             "'contour_type' should be either 'contour' or 'contourf'")
     contourfunc(
         xmids, ymids, cdf, contourlevels,
-        colors=[mpl.colors.to_rgba(color, a) for a in alphas],
+        colors=[mplcolors.to_rgba(color, a) for a in alphas],
         **contourkw)
     
     return ax
 
 
-def minimal_barplot(
+def minimal_bar_plot(
         seq, percent=[16., 50., 84.], pos=None,
         colors=None, labels=None, labelloc='up', labelpad=0.1,
         ax=None, barkw={}, labelkw={}, **symkw):
     """
-    Generate barplot, in the spirit of minimalism.
+    Generate bar plot, in the spirit of minimalism.
 
     Parameters
     ----------
@@ -253,12 +278,10 @@ def minimal_barplot(
         Keyword arguments to control the behavior of the symbols.
         Will be passed to `~matplotlib.axes.Axes.plot`.
 
-    Examples
-    --------
-    >>> seq = [np.random.randn(1000) + i for i in range(5)]
-    >>> ax = minimal_barplot(seq,
-    >>>                      percent=[5, 16, 25, 50, 75, 84, 95],
-    >>>                      labels=['a', 'b', 'c', 'd', 'e'])
+    Returns
+    -------
+    ax : `~matplotlib.axes.Axes` object
+        The Axes object in which the bar plot is created.
     """
 
     percentiles = np.array([np.percentile(x, percent) for x in seq])
@@ -285,35 +308,39 @@ def minimal_barplot(
         va = 'top'
         dy = -labelpad
     else:
-        raise ValueError("`labelloc` must be one of "
-                         "('top', 'bottom')")
+        raise ValueError(
+            "`labelloc` must be either 'top' or 'bottom'")
 
     if ax is None:
-        ax = plt.subplot(111)
+        ax = plt.gca()
     lw = 0.
     ibar = -1
     for ibar in range(nlim // 2):
         lw += plt.rcParams['lines.linewidth']
-        ax.hlines(pos, percentiles[:, ibar], percentiles[:, -ibar-1],
-                  colors=colors, linewidth=lw, **barkw)
+        ax.hlines(
+            pos, percentiles[:, ibar], percentiles[:, -ibar-1],
+            colors=colors, linewidth=lw, **barkw)
     if nlim % 2 == 1:
         for isample in range(nsample):
-            ax.plot(percentiles[isample, ibar+1], pos[isample],
-                    ms=lw+2, mfc='w', mew=lw, mec=colors[isample],
-                    lw=0.0, **symkw)
-            ax.text(percentiles[isample, ibar+1],
-                    pos[isample] + dy,
-                    labels[isample], ha=ha, va=va,
-                    color=colors[isample], **labelkw)
+            ax.plot(
+                percentiles[isample, ibar+1], pos[isample],
+                ms=lw+2, mfc='w', mew=lw, mec=colors[isample],
+                lw=0.0, **symkw)
+            ax.text(
+                percentiles[isample, ibar+1], pos[isample] + dy,
+                labels[isample], ha=ha, va=va,
+                color=colors[isample], **labelkw)
     else:
         for isample in range(nsample):
-            ax.text(percentiles[isample, ibar:ibar+2].mean(),
-                    pos[isample] + dy,
-                    labels[isample], ha=ha, va=va,
-                    color=colors[isample], **labelkw)
+            ax.text(
+                percentiles[isample, ibar:ibar+2].mean(),
+                pos[isample] + dy,
+                labels[isample], ha=ha, va=va,
+                color=colors[isample], **labelkw)
 
-    ax.tick_params(axis='both', left='off', top='off', right='off',
-                   labelleft='off', labeltop='off', labelright='off')
+    ax.tick_params(
+        axis='both', left='off', top='off', right='off',
+        labelleft='off', labeltop='off', labelright='off')
     for side in ['top', 'left', 'right']:
         ax.spines[side].set_visible(False)
     ax.xaxis.set_ticks_position('bottom')
