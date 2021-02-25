@@ -5,11 +5,11 @@ import numpy as np
 from corner import corner
 
 
-def easy_corner(chain, range=None, bins=50, smooth=2,
-                quantiles=[0.16, 0.50, 0.84], show_titles=True,
-                **kwargs):
+def easy_corner(
+        chain, range=None, bins=50, smooth=2,
+        quantiles=[0.16, 0.50, 0.84], show_titles=True, **kwargs):
     """
-    `~corner.corner` function with some pre-configued parameters.
+    `~corner.corner` function with some pre-configured parameters.
 
     Parameters
     ----------
@@ -35,8 +35,6 @@ def easy_corner(chain, range=None, bins=50, smooth=2,
     nsamples, ndim = np.shape(chain)
     if range is None:
         range = [0.95] * ndim
-    return corner(chain, range=range, bins=bins, smooth=smooth,
-                  quantiles=quantiles, show_titles=show_titles,
-                  **kwargs)
-
-
+    return corner(
+        chain, range=range, bins=bins, smooth=smooth,
+        quantiles=quantiles, show_titles=show_titles, **kwargs)
