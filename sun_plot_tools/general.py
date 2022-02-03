@@ -4,10 +4,9 @@ from __future__ import (
 import matplotlib.pyplot as plt
 
 
-def mpl_setup(figtype='paper-1/2', aspect=0.8,
-              lw=None, ms=None, fs=None,
-              style='seaborn-paper', rcParams={}):
-
+def mpl_setup(
+        figtype='paper-1/2', aspect=0.8, lw=None, ms=None, fs=None,
+        style='seaborn-paper', rcParams={}):
     """
     Configure matplotlib rcParams.
 
@@ -79,11 +78,12 @@ def mpl_setup(figtype='paper-1/2', aspect=0.8,
     # font
     plt.rcParams['text.usetex'] = True
     plt.rcParams['font.family'] = 'serif'
-    plt.rcParams['font.serif'] = ['Times', 'Times New Roman',
-                                  'DejaVu Serif', 'serif']
-    plt.rcParams['font.sans-serif'] = ['Helvetica', 'Arial',
-                                       'DejaVu Sans', 'sans-serif']
-    plt.rcParams['font.monospace'] = ['Terminal', 'monospace']
+    plt.rcParams['font.serif'] = [
+        'Times', 'Times New Roman', 'DejaVu Serif', 'serif']
+    plt.rcParams['font.sans-serif'] = [
+        'Helvetica', 'Arial', 'DejaVu Sans', 'sans-serif']
+    plt.rcParams['font.monospace'] = [
+        'Terminal', 'monospace']
 
     # font weight 
     if figtype == 'talk':
@@ -102,11 +102,12 @@ def mpl_setup(figtype='paper-1/2', aspect=0.8,
     plt.rcParams['figure.titlesize'] = 'large'
 
     # linewidth
-    for key in ['lines.linewidth', 'axes.linewidth',
-                'patch.linewidth', 'hatch.linewidth',
-                'grid.linewidth', 'lines.markeredgewidth',
-                'xtick.major.width', 'xtick.minor.width',
-                'ytick.major.width', 'ytick.minor.width']:
+    for key in [
+            'lines.linewidth', 'axes.linewidth',
+            'patch.linewidth', 'hatch.linewidth',
+            'grid.linewidth', 'lines.markeredgewidth',
+            'xtick.major.width', 'xtick.minor.width',
+            'ytick.major.width', 'ytick.minor.width']:
         plt.rcParams[key] = lw
 
     # errorbar cap size
