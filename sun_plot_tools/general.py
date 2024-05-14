@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 def mpl_setup(
         figtype='paper-1/2', aspect=0.8, lw=None, ms=None, fs=None,
-        style='seaborn-paper', rcParams={}):
+        style='seaborn-v0_8-paper', rcParams={}):
     """
     Configure matplotlib rcParams.
 
@@ -35,7 +35,7 @@ def mpl_setup(
         Font size (in points). Default is 11 (18 for figtype='talk').
     style : string, optional
         Style name to be passed to `~matplotlib.pyplot.style.use`.
-        Default is 'seaborn-paper'.
+        Default is 'seaborn-v0_8-paper'.
     rcParams : dict, optional
         Other `~matplotlib.rcParams`
     """
