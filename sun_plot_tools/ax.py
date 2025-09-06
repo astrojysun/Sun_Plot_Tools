@@ -9,10 +9,10 @@ from astropy.utils.console import ProgressBar
 
 
 def dense_scatter(
-        x, y, ax=None, zorder=None, label=None,
-        marker='o', markersize=1., edgewidth=0.,
-        c='w', edgecolor='k', color_smoothing_box=None,
-        xscale='log', yscale='log', show_progress=False, **kwargs):
+        x, y, xscale='log', yscale='log', xlim=None, ylim=None,
+        marker='o', c='w', markersize=1., edgecolor='k', edgewidth=0,
+        color_smoothing_box=None, show_progress='notebook',
+        ax=None, zorder=None, label=None, **kwargs):
     """
     Make scatter plots that handle overlapping data points better.
 
@@ -25,32 +25,38 @@ def dense_scatter(
     ----------
     x, y : array_like
         x & y coordinates of the data points
+    xscale, yscale : {'log', 'linear'}, optional
+        Axes scales. Default is 'log' for both.
+        They are also passed to the `~matplotlib.axes.Axes` object.
+    xlim, ylim : None or 2-tuple, optional
+        Axes ranges to show. Default is to use a range wider than the
+        full data range by 10% on both sides.
+        They are also passed to the `~matplotlib.axes.Axes` object.
+    marker : marker style
+        Default: 'o'
+    c : color or array-like, optional
+        Default: 'w'
+    markersize : float, optional
+        Default: 1
+    edgecolor : color, optional
+        Default: 'k'
+    edgewidth : float, optional
+        Default: 0
+    color_smoothing_box : None or 2-tuple, optional
+        If None, then no color smoothing will be performed.
+        If a 2-tuple, then this parameter specifies the full width
+        of the color smoothing box along X and Y direction, with its
+        values interpreted as fractions of the ranges specified by
+        'xlim' and 'ylim'.
+    show_progress : {'notebook', True, False}, optional
+        Whether to show the progress bar for color smoothing.
+        If 'notebook', the progress bar will use the notebook widget
     ax : `~matplotlib.axes.Axes` object, optional
         The Axes object in which to draw the scatter plot.
     zorder : float, optional
     label : string, optional
         Text label to use in the legend
         (ignored if facecolor is not a scalar)
-    marker : marker style
-        Default: 'o'
-    markersize : float, optional
-        Default: 1.
-    edgewidth : float, optional
-        Default: 0.
-    c : color or array-like, optional
-        Default: 'w'
-    edgecolor : color, optional
-        Default: 'k'
-    color_smoothing_box : None or 2-tuple, optional
-        If None, then no color smoothing will be performed.
-        If a 2-tuple, then this parameter specifies the full width
-        of the color smoothing box along X and Y direction.
-    xscale : {'log', 'linear'}, optional
-        X axis scale type (default: 'log')
-    yscale : {'log', 'linear'}, optional
-        Y axis scale type (default: 'log')
-    show_progress : bool, optional
-        Whether to show the progress bar for color smoothing.
     **kwargs
         Keywords to be passed to `~matplotlib.pyplot.scatter`
 
@@ -59,43 +65,74 @@ def dense_scatter(
     ax : `~matplotlib.axes.Axes` object
         The Axes object in which contours are plotted.
     """
+
+    # get plotting axis object if needed
     if ax is None:
         ax = plt.gca()
 
+    # check and set axis scales
+    if xscale not in ('log', 'linear'):
+        raise ValueError("Unsupported 'xscale': " + xscale)
     ax.set_xscale(xscale)
+    if yscale not in ('log', 'linear'):
+        raise ValueError("Unsupported 'yscale': " + yscale)
     ax.set_yscale(yscale)
 
+    # determine axis ranges if needed
+    if xlim is None:
+        xmax, xmin = np.nanmax(x), np.nanmin(x)
+        if xscale == 'log':
+            xoverscan = (xmax / xmin) ** 0.1
+            xlim = (xmin / xoverscan, xmax * xoverscan)
+        else:
+            xoverscan = (xmax - xmin) * 0.1
+            xlim = (xmin - xoverscan, xmax + xoverscan)
+    ax.set_xlim(xlim)
+    if ylim is None:
+        ymax, ymin = np.nanmax(y), np.nanmin(y)
+        if yscale == 'log':
+            yoverscan = (ymax / ymin) ** 0.1
+            ylim = (ymin / yoverscan, ymax * yoverscan)
+        else:
+            yoverscan = (ymax - ymin) * 0.1
+            ylim = (ymin - yoverscan, ymax + yoverscan)
+    ax.set_ylim(ylim)
+
+    # color smoothing
     if (color_smoothing_box is not None) and (np.size(c) > 1):
         if xscale == 'log':
             x_ = np.log10(x)
-        elif xscale == 'linear':
-            x_ = x
+            xbw = \
+                color_smoothing_box[0] * np.log10(xlim[1] / xlim[0])
         else:
-            raise ValueError(
-                "xscale={} not supported yet".format(xscale))
+            x_ = x
+            xbw = \
+                color_smoothing_box[0] * (xlim[1] - xlim[0])
         if yscale == 'log':
             y_ = np.log10(y)
+            ybw = \
+                color_smoothing_box[1] * np.log10(ylim[1] / ylim[0])
         elif yscale == 'linear':
             y_ = y
-        else:
-            raise ValueError(
-                "yscale={} not supported yet".format(yscale))
+            ybw = \
+                color_smoothing_box[1] * (ylim[1] - ylim[0])
         newc = []
-        if show_progress:
+        if show_progress == 'notebook':
+            bar = ProgressBar(range(len(x)), ipython_widget=True)
+        elif show_progress:
             bar = ProgressBar(range(len(x)))
         else:
             bar = None
         for (x0_, y0_) in zip(x_, y_):
             newc.append(np.nanmedian(
-                c[(x_ > x0_ - color_smoothing_box[0]/2) &
-                  (x_ < x0_ + color_smoothing_box[0]/2) &
-                  (y_ > y0_ - color_smoothing_box[1]/2) &
-                  (y_ < y0_ + color_smoothing_box[1]/2)]))
+                c[(x_ > x0_ - xbw/2) & (x_ < x0_ + xbw/2) &
+                  (y_ > y0_ - ybw/2) & (y_ < y0_ + ybw/2)]))
             if show_progress:
                 bar.update()
     else:
         newc = c
 
+    # make scatter plot
     if edgewidth == 0:
         ax.scatter(
             x, y, marker=marker, c=newc, s=markersize**2,
@@ -110,6 +147,7 @@ def dense_scatter(
             s=(markersize-edgewidth)**2,
             linewidths=0, zorder=zorder, **kwargs)
 
+    # add legend entry
     if label is not None:
         if np.size(c) > 1:
             print("Unable to add legend entry: `c` is not a scalar")
@@ -144,6 +182,7 @@ def density_contour(
         Range to calculate and generate contour.
         Default is to use a range wider than the full data range
         by a factor of 'overscan' on both sides.
+        They are also passed to the `~matplotlib.axes.Axes` object.
     overscan : array_like (length=2), optional
         Fraction by which 'xlim' and 'ylim' are wider than the full
         data range. Default is 0.15 for both axes, meaning 15% wider
